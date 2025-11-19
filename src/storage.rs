@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use std::{fs, io};
-use std::fs::File;
-use std::path::Path;
-use std::io::BufRead;
 use crate::Balance;
 use crate::Name;
 use crate::Storage;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufRead;
+use std::path::Path;
+use std::{fs, io};
 
 impl Storage {
     /// Создаёт новый пустой банк
@@ -117,6 +117,14 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+
+    #[test]
+    fn test_new_storage_is_empty() {
+        let bank = Storage::new();
+        assert_eq!(bank.accounts.len(), 0);
+    }
 
     #[test]
     fn test_add_user() {
@@ -147,5 +155,53 @@ mod tests {
 
         // Баланс у несуществующего пользователя
         assert_eq!(storage.get_balance(&"Dana".to_string()), None);
+    }
+
+    #[test]
+    fn test_load_data_existing_file() {
+        let file_path = "test_load.csv";
+
+        // Создаём файл с исходными данными
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "John,100").unwrap();
+        writeln!(file, "Alice,200").unwrap();
+        writeln!(file, "Bob,50").unwrap();
+
+        // Загружаем Storage
+        let storage = Storage::load_data(file_path);
+
+        assert_eq!(storage.get_balance(&"John".to_string()), Some(100));
+        assert_eq!(storage.get_balance(&"Alice".to_string()), Some(200));
+        assert_eq!(storage.get_balance(&"Bob".to_string()), Some(50));
+        // Пользователь Vasya не добавлен в файле, поэтому None
+        assert_eq!(storage.get_balance(&"Vasya".to_string()), None);
+
+        // Удаляем тестовый файл
+        fs::remove_file(file_path).unwrap();
+    }
+
+    #[test]
+    fn test_save_creates_file_with_correct_data() {
+        let file_path = "test_save.csv";
+
+        // Создаём Storage и добавляем пользователей
+        let mut storage = Storage::new();
+        storage.add_user("John".to_string());
+        storage.add_user("Alice".to_string());
+        storage.deposit(&"John".to_string(), 150).unwrap();
+        storage.deposit(&"Alice".to_string(), 300).unwrap();
+
+        // Сохраняем в файл
+        storage.save(file_path);
+
+        // Читаем файл обратно и проверяем содержимое
+        let contents = fs::read_to_string(file_path).unwrap();
+        let mut lines: Vec<&str> = contents.lines().collect();
+        lines.sort(); // сортируем, так как get_all() может возвращать в любом порядке
+
+        assert_eq!(lines, vec!["Alice,300", "John,150"]);
+
+        // Удаляем тестовый файл
+        fs::remove_file(file_path).unwrap();
     }
 }
