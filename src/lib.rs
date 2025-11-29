@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
+pub mod analytics;
+pub mod operations;
 pub mod storage;
 
-pub type Name = String;
-pub type Balance = i64;
+pub use operations::{Balance, OpKind};
+pub use storage::Storage;
 
-pub struct Storage {
-    accounts: HashMap<Name, Balance>,
-}
+pub type Name = String;

@@ -25,7 +25,7 @@ fn main() {
             break; // EOF
         }
 
-        let args: Vec<&str> = input.trim().split_whitespace().collect();
+        let args: Vec<&str> = input.split_whitespace().collect();
         if args.is_empty() {
             continue;
         }
@@ -37,7 +37,7 @@ fn main() {
                     continue;
                 }
                 let name: Name = args[1].to_string();
-                let balance: i64 = match args[2].parse() {
+                let balance: u64 = match args[2].parse() {
                     Ok(b) => b,
                     Err(_) => {
                         println!("Сумма должна быть числом");
@@ -71,7 +71,7 @@ fn main() {
                     continue;
                 }
                 let name = args[1].to_string();
-                let amount: i64 = match args[2].parse() {
+                let amount: u64 = match args[2].parse() {
                     Ok(a) => a,
                     Err(_) => {
                         println!("Сумма должна быть числом");
@@ -92,7 +92,7 @@ fn main() {
                     continue;
                 }
                 let name = args[1].to_string();
-                let amount: i64 = match args[2].parse() {
+                let amount: u64 = match args[2].parse() {
                     Ok(a) => a,
                     Err(_) => {
                         println!("Сумма должна быть числом");
@@ -114,7 +114,7 @@ fn main() {
                 }
                 let name: Name = args[1].to_string();
                 match storage.get_balance(&name) {
-                    Some(b) => println!("Баланс {}: {}", name, b),
+                    Some(b) => println!("Баланс {}: {}", name, b.result),
                     None => println!("Пользователь {} не найден", name),
                 }
             }
