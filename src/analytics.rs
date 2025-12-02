@@ -1,7 +1,7 @@
 use crate::operations::OpKind;
 use crate::storage::Storage;
 
-fn find_best(storage: &Storage) -> Option<(&str, f32)> {
+pub fn find_best(storage: &Storage) -> Option<(&str, f32)> {
     if storage.accounts.is_empty() {
         return None;
     }

@@ -21,7 +21,7 @@ impl Balance {
 
     pub fn process<'a>(&mut self, ops: &[&'a OpKind]) -> Vec<&'a OpKind> {
         let mut remaining = ops.iter();
-        let mut bad_ops= Vec::new();
+        let mut bad_ops = Vec::new();
 
         for op in &mut remaining {
             match op {

@@ -1,5 +1,4 @@
-// Используем re-exports из lib.rs
-use bank_system::{Name, Storage};
+use bank_system::{BalanceManager, Name, Storage};
 use std::env;
 
 fn main() {

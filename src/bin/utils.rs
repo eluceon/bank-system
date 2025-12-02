@@ -1,4 +1,4 @@
-use bank_system::{Name, Storage};
+use bank_system::{BalanceManager, Name, Storage};
 use std::io::{self, BufRead, Write};
 
 fn main() {

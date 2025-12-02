@@ -1,10 +1,16 @@
 use crate::Name;
+use crate::errors::BalanceManagerError;
 use crate::operations::{Balance, OpKind};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufRead;
 use std::path::Path;
 use std::{fs, io};
+
+pub trait BalanceManager {
+    fn deposit(&mut self, name: &Name, amount: u64) -> Result<(), BalanceManagerError>;
+    fn withdraw(&mut self, name: &Name, amount: u64) -> Result<(), BalanceManagerError>;
+}
 
 pub struct Storage {
     pub accounts: HashMap<Name, Balance>,
@@ -38,38 +44,6 @@ impl Storage {
 
     pub fn get_balance(&self, name: &Name) -> Option<Balance> {
         self.accounts.get(name).cloned()
-    }
-
-    /// Пополняет счёт пользователя
-    pub fn deposit(&mut self, name: &Name, amount: u64) -> Result<(), String> {
-        if let Some(balance) = self.accounts.get_mut(name) {
-            let op = OpKind::Deposit(amount as u32);
-            let ops_refs = [&op];
-            let failed = balance.process(&ops_refs);
-            if failed.is_empty() {
-                Ok(())
-            } else {
-                Err("Не удалось выполнить операцию пополнения".into())
-            }
-        } else {
-            Err("Пользователь не найден".into())
-        }
-    }
-
-    /// Снимает средства со счёта пользователя
-    pub fn withdraw(&mut self, name: &Name, amount: u64) -> Result<(), String> {
-        if let Some(balance) = self.accounts.get_mut(name) {
-            let op = OpKind::Withdraw(amount as u32);
-            let ops_refs = [&op];
-            let failed = balance.process(&ops_refs);
-            if failed.is_empty() {
-                Ok(())
-            } else {
-                Err("Недостаточно средств".into())
-            }
-        } else {
-            Err("Пользователь не найден".into())
-        }
     }
 
     /// Получает все аккаунты с их балансами
@@ -131,6 +105,51 @@ impl Storage {
         // Записываем в файл
         // Здесь мы не используем BufWriter, потому что сразу пишем всю строку целиком.
         fs::write(file, data).expect("Не удалось записать файл");
+    }
+
+    pub fn process_if_deposit(
+        &mut self,
+        operations: &[(bool, Name, u64)],
+    ) -> Result<(), BalanceManagerError> {
+        for (is_deposit, name, sum) in operations {
+            if *is_deposit {
+                self.deposit(name, *sum)?;
+            } else {
+                self.withdraw(name, *sum)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl BalanceManager for Storage {
+    fn deposit(&mut self, name: &Name, amount: u64) -> Result<(), BalanceManagerError> {
+        if let Some(balance) = self.accounts.get_mut(name) {
+            let op = OpKind::Deposit(amount as u32);
+            let ops_refs = [&op];
+            balance.process(&ops_refs);
+            Ok(())
+        } else {
+            Err(BalanceManagerError::UserNotFound(name.clone()))
+        }
+    }
+
+    fn withdraw(&mut self, name: &Name, amount: u64) -> Result<(), BalanceManagerError> {
+        if let Some(balance) = self.accounts.get_mut(name) {
+            if balance.result >= amount {
+                let op = OpKind::Withdraw(amount as u32);
+                let ops_refs = [&op];
+                balance.process(&ops_refs);
+                Ok(())
+            } else {
+                Err(BalanceManagerError::NotEnoughMoney {
+                    required: amount,
+                    available: balance.result,
+                })
+            }
+        } else {
+            Err(BalanceManagerError::UserNotFound(name.clone()))
+        }
     }
 }
 
@@ -280,5 +299,72 @@ mod tests {
         lines.sort();
 
         assert_eq!(lines, vec!["Alice,300", "John,150"]);
+    }
+
+    #[test]
+    fn process_if_deposit_success() {
+        let mut storage = Storage::new();
+        storage.add_user("Alice".to_string());
+        storage.add_user("Bob".to_string());
+
+        let operations = vec![
+            (true, "Alice".to_string(), 100), // deposit
+            (true, "Bob".to_string(), 200),   // deposit
+            (false, "Alice".to_string(), 50), // withdraw
+        ];
+
+        let result = storage.process_if_deposit(&operations);
+        assert!(result.is_ok());
+        assert_eq!(
+            storage.get_balance(&"Alice".to_string()).unwrap().result,
+            50
+        );
+        assert_eq!(storage.get_balance(&"Bob".to_string()).unwrap().result, 200);
+    }
+
+    #[test]
+    fn process_if_deposit_user_not_found() {
+        let mut storage = Storage::new();
+        storage.add_user("Alice".to_string());
+
+        let operations = vec![
+            (true, "Alice".to_string(), 100),
+            (true, "Unknown".to_string(), 50), // пользователь не существует
+        ];
+
+        let result = storage.process_if_deposit(&operations);
+        assert!(result.is_err());
+
+        match result {
+            Err(BalanceManagerError::UserNotFound(name)) => {
+                assert_eq!(name, "Unknown");
+            }
+            _ => panic!("Ожидалась ошибка UserNotFound"),
+        }
+    }
+
+    #[test]
+    fn process_if_deposit_not_enough_money() {
+        let mut storage = Storage::new();
+        storage.add_user("Alice".to_string());
+        storage.deposit(&"Alice".to_string(), 50).unwrap();
+
+        let operations = vec![
+            (false, "Alice".to_string(), 100), // снять больше чем есть
+        ];
+
+        let result = storage.process_if_deposit(&operations);
+        assert!(result.is_err());
+
+        match result {
+            Err(BalanceManagerError::NotEnoughMoney {
+                required,
+                available,
+            }) => {
+                assert_eq!(required, 100);
+                assert_eq!(available, 50);
+            }
+            _ => panic!("Ожидалась ошибка NotEnoughMoney"),
+        }
     }
 }
