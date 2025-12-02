@@ -1,4 +1,4 @@
-use bank_system::{BalanceManager, Name, Storage};
+use bank_system::{BalanceManager, Deposit, Name, Storage, Transaction, Transfer};
 use std::env;
 
 fn main() {
@@ -10,6 +10,7 @@ fn main() {
         eprintln!("Использование:");
         eprintln!("  deposit <name> <amount>");
         eprintln!("  withdraw <name> <amount>");
+        eprintln!("  transfer <from> <to> <amount>");
         eprintln!("  balance <name>");
         return;
     }
@@ -23,12 +24,17 @@ fn main() {
             let name: Name = args[2].clone();
             let amount: u64 = args[3].parse().expect("Сумма должна быть числом");
 
-            match storage.deposit(&name, amount) {
+            let tx = Deposit {
+                account: name.clone(),
+                amount,
+            };
+
+            match tx.apply(&mut storage) {
                 Ok(_) => {
-                    println!("Пополнено: {} на {}", name, amount);
+                    println!("Транзакция: депозит {} на {}", name, amount);
                     storage.save("balance.csv");
                 }
-                Err(e) => println!("Ошибка: {}", e),
+                Err(e) => println!("Ошибка транзакции: {:?}", e),
             }
         }
         "withdraw" => {
@@ -45,6 +51,29 @@ fn main() {
                     storage.save("balance.csv");
                 }
                 Err(e) => println!("Ошибка: {}", e),
+            }
+        }
+        "transfer" => {
+            if args.len() != 5 {
+                eprintln!("Пример: transfer Alice Bob 100");
+                return;
+            }
+            let from: Name = args[2].clone();
+            let to: Name = args[3].clone();
+            let amount: u64 = args[4].parse().expect("Сумма должна быть числом");
+
+            let tx = Transfer {
+                from: from.clone(),
+                to: to.clone(),
+                amount,
+            };
+
+            match tx.apply(&mut storage) {
+                Ok(_) => {
+                    println!("Транзакция: перевод {} от {} к {}", amount, from, to);
+                    storage.save("balance.csv");
+                }
+                Err(e) => println!("Ошибка транзакции: {:?}", e),
             }
         }
         "balance" => {
