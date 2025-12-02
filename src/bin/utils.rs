@@ -11,6 +11,8 @@ fn main() {
     println!("  deposit <name> <amount>      - пополнить баланс (транзакция)");
     println!("  withdraw <name> <amount>     - снять со счёта");
     println!("  transfer <from> <to> <amount> - перевод между счетами");
+    println!("  + deposit <name> <amount> transfer <from> <to> <amount>");
+    println!("                               - комбинированная транзакция");
     println!("  balance <name>               - показать баланс");
     println!("  exit                         - выйти");
 
@@ -141,6 +143,36 @@ fn main() {
                         storage.save("balance.csv");
                     }
                     Err(e) => println!("Ошибка транзакции: {:?}", e),
+                }
+            }
+            "+" => {
+                if args.len() != 8 {
+                    println!(
+                        "Пример: + deposit Alice 100 transfer Alice Bob 30 (получено {} аргументов)",
+                        args.len()
+                    );
+                    continue;
+                }
+
+                let deposit = Deposit {
+                    account: args[2].to_string(),
+                    amount: args[3].parse().unwrap_or(0),
+                };
+
+                let transfer = Transfer {
+                    from: args[5].to_string(),
+                    to: args[6].to_string(),
+                    amount: args[7].parse().unwrap_or(0),
+                };
+
+                let combined_tx = deposit + transfer;
+
+                match combined_tx.apply(&mut storage) {
+                    Ok(_) => {
+                        println!("Комбинированная транзакция выполнена!");
+                        storage.save("balance.csv");
+                    }
+                    Err(e) => println!("Ошибка при выполнении: {:?}", e),
                 }
             }
             "balance" => {
