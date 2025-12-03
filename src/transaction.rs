@@ -53,6 +53,22 @@ impl Transaction for Deposit {
     }
 }
 
+pub struct Withdraw {
+    pub account: String,
+    pub amount: u64,
+}
+
+impl Transaction for Withdraw {
+    fn apply(&self, storage: &mut Storage) -> Result<(), TxError> {
+        let balance = storage.accounts.entry(self.account.clone()).or_default();
+        if balance.result < self.amount {
+            return Err(TxError::InsufficientFunds);
+        }
+        balance.result -= self.amount;
+        Ok(())
+    }
+}
+
 pub struct Transfer {
     pub from: String,
     pub to: String,
@@ -147,6 +163,43 @@ mod tests {
         assert!(tx.apply(&mut storage).is_ok());
         assert_eq!(storage.accounts.get("Alice").unwrap().result, 60);
         assert_eq!(storage.accounts.get("Bob").unwrap().result, 40);
+    }
+
+    #[test]
+    fn withdraw_success() {
+        let mut storage = Storage::new();
+        storage.add_user("Dima".to_string());
+        storage.accounts.get_mut("Dima").unwrap().result = 100;
+
+        let tx = Withdraw {
+            account: "Dima".to_string(),
+            amount: 70,
+        };
+
+        assert!(tx.apply(&mut storage).is_ok());
+        assert_eq!(storage.accounts.get("Dima").unwrap().result, 30);
+
+        let tx2 = Withdraw {
+            account: "Dima".to_string(),
+            amount: 30,
+        };
+        assert!(tx2.apply(&mut storage).is_ok());
+        assert_eq!(storage.accounts.get("Dima").unwrap().result, 0);
+    }
+
+    #[test]
+    fn withdraw_insufficient_funds() {
+        let mut storage = Storage::new();
+        storage.add_user("Dima".to_string());
+        storage.accounts.get_mut("Dima").unwrap().result = 30;
+
+        let tx = Withdraw {
+            account: "Dima".to_string(),
+            amount: 70,
+        };
+
+        let result = tx.apply(&mut storage);
+        assert!(matches!(result, Err(TxError::InsufficientFunds)));
     }
 
     #[test]
