@@ -1,9 +1,9 @@
-use bank_system::tx_chain;
 use bank_system::Storage;
+use bank_system::tx_chain;
 use bank_system::{Deposit, Transaction, Transfer, Withdraw};
-use my_macros::{say_hello, ToSql};
+use my_macros::{FromSql, ToSql, say_hello};
 
-#[derive(ToSql)]
+#[derive(Debug, ToSql, FromSql)]
 struct User {
     id: i32,
     name: String,
@@ -63,4 +63,8 @@ fn main() {
         age: 30,
     };
     println!("{}", user.to_sql("users"));
+
+    let sql = "INSERT INTO users (id, name,age, status) VALUES('1','Bob','35', 'Offline');";
+    let user2 = User::from_sql(sql);
+    println!("{:?}", user2);
 }

@@ -118,3 +118,49 @@ pub fn to_sql_derive(input: TokenStream) -> TokenStream {
     // Преобразуем proc_macro2::TokenStream обратно в proc_macro::TokenStream
     TokenStream::from(expanded)
 }
+
+#[proc_macro_derive(FromSql)]
+pub fn from_sql_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    // Собираем поля структуры
+    let fields = if let syn::Data::Struct(data) = &input.data {
+        data.fields
+            .iter()
+            .map(|f| f.ident.clone().unwrap())
+            .collect::<Vec<_>>()
+    } else {
+        panic!("FromSql can only be derived for structs");
+    };
+
+    // Генерируем код с итератором по значениям
+    let assigns = fields.iter().map(|f| {
+        quote! {
+            #f: vals.next().unwrap().parse().expect("Cannot parse field"),
+        }
+    });
+
+    let expanded = quote! {
+        impl #name {
+            pub fn from_sql(sql: &str) -> Self {
+                let mut vals = sql
+                    .split("VALUES(")
+                    .nth(1)
+                    .expect("No VALUES found")
+                    .trim_end_matches(");")
+                    .split(',')
+                    .map(|s| s.trim().trim_matches('\''))
+                    .into_iter();
+
+                Self {
+                    #(#assigns)*
+                }
+            }
+        }
+    };
+
+    println!("{}", expanded);
+
+    TokenStream::from(expanded)
+}

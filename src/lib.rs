@@ -9,6 +9,6 @@ pub use analytics::find_best;
 pub use errors::BalanceManagerError;
 pub use operations::{Balance, OpKind};
 pub use storage::{BalanceManager, Storage};
-pub use transaction::{Deposit, Transaction, Transfer, Withdraw,  TxCombinator, TxError};
+pub use transaction::{Deposit, Transaction, Transfer, TxCombinator, TxError, Withdraw};
 
 pub type Name = String;
