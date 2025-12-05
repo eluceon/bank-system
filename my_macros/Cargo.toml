@@ -1,0 +1,17 @@
+[package]
+name = "my_macros"
+version = "0.1.0"
+edition = "2024"
+
+# Указываем Cargo, что эта библиотека будет содержать procedural macros
+# (то есть код, который генерирует код на этапе компиляции).
+# Без этого атрибута #[proc_macro], #[proc_macro_derive] и #[proc_macro_attribute] работать не будут
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+

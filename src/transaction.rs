@@ -1,5 +1,6 @@
 use crate::storage::Storage;
 use std::ops::Add;
+use my_macros::Transaction;
 
 #[derive(Debug)]
 pub enum TxError {
@@ -12,8 +13,8 @@ pub trait Transaction {
 }
 
 pub struct TxCombinator<T1, T2> {
-    t1: T1,
-    t2: T2,
+    pub t1: T1,
+    pub t2: T2,
 }
 
 impl<T1: Transaction, T2: Transaction> Transaction for TxCombinator<T1, T2> {
@@ -32,6 +33,7 @@ impl<T1, T2, Rhs: Transaction> Add<Rhs> for TxCombinator<T1, T2> {
     }
 }
 
+#[derive(Transaction)]
 pub struct Deposit {
     pub account: String,
     pub amount: u64,
@@ -45,30 +47,15 @@ impl<T: Transaction> Add<T> for Deposit {
     }
 }
 
-impl Transaction for Deposit {
-    fn apply(&self, storage: &mut Storage) -> Result<(), TxError> {
-        let balance = storage.accounts.entry(self.account.clone()).or_default();
-        balance.result += self.amount;
-        Ok(())
-    }
-}
-
+#[derive(Transaction)]
+#[transaction("withdraw")]
 pub struct Withdraw {
     pub account: String,
     pub amount: u64,
 }
 
-impl Transaction for Withdraw {
-    fn apply(&self, storage: &mut Storage) -> Result<(), TxError> {
-        let balance = storage.accounts.entry(self.account.clone()).or_default();
-        if balance.result < self.amount {
-            return Err(TxError::InsufficientFunds);
-        }
-        balance.result -= self.amount;
-        Ok(())
-    }
-}
-
+#[derive(Transaction)]
+#[transaction("transfer")]
 pub struct Transfer {
     pub from: String,
     pub to: String,
@@ -80,32 +67,6 @@ impl<T: Transaction> Add<T> for Transfer {
 
     fn add(self, rhs: T) -> Self::Output {
         TxCombinator { t1: self, t2: rhs }
-    }
-}
-
-impl Transaction for Transfer {
-    fn apply(&self, storage: &mut Storage) -> Result<(), TxError> {
-        let from_balance = storage
-            .accounts
-            .get(&self.from)
-            .map(|b| b.result)
-            .unwrap_or(0);
-
-        if from_balance < self.amount {
-            return Err(TxError::InsufficientFunds);
-        }
-
-        if let Some(balance) = storage.accounts.get_mut(&self.from) {
-            balance.result -= self.amount;
-        } else {
-            return Err(TxError::InvalidAccount);
-        }
-
-        // Зачисляем получателю
-        let to_balance = storage.accounts.entry(self.to.clone()).or_default();
-        to_balance.result += self.amount;
-
-        Ok(())
     }
 }
 
